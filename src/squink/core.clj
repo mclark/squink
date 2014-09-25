@@ -5,7 +5,7 @@
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [compojure.core :refer [defroutes GET POST]]
             [clojurewerkz.urly.core :refer [url-like]])
-  (:import clojure.lang.Murmur3))
+  (:import clojure.lang.Murmur3 (com.mysql.jdbc.exceptions MySQLIntegrityConstraintViolationException)))
 
 (def db {:subprotocol "mysql"
          :subname "//localhost:3306/squink"
@@ -38,18 +38,22 @@
                     #(Murmur3/hashUnencodedChars %)))
 
 (defn persist [url hashed]
-  (jdbc/with-db-transaction
-    [conn db]
-    (let [existing (find-url conn hashed)]
-      (if (nil? existing) (insert-url conn url hashed) (= existing url)))))
+  (let [existing (find-url db hashed)]
+    (if (nil? existing)
+      (try
+        (insert-url db url hashed)
+        (catch MySQLIntegrityConstraintViolationException e
+               (= url (find-url db hashed))))
+      (= existing url))))
 
 (defn shorten [url]
   (loop [candidate-url url tries-remaining 3]
-    (let [hashed (hash-url candidate-url)
-          synced-to-db? (persist candidate-url hashed)]
-      (if (and (< 0 tries-remaining) (not synced-to-db?))
-        (recur (str tries-remaining "+" url) (dec tries-remaining))
-        hashed))))
+    (let [hashed (hash-url candidate-url)]
+      (if (persist candidate-url hashed)
+        hashed
+        (if (< 0 tries-remaining)
+          (recur (str tries-remaining "+" url) (dec tries-remaining))
+          nil)))))
 
 (defn- sanitize-url [^String url]
   (if (blank? url)
