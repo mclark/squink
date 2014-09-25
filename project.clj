@@ -8,6 +8,9 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [compojure "1.1.9"]
                  [ring/ring-core "1.3.1"]
+                 [ring/ring-jetty-adapter "1.3.1"]
                  [org.clojure/java.jdbc "0.3.5"]
                  [mysql/mysql-connector-java "5.1.25"]
-                 [clojurewerkz/urly "1.0.0"]])
+                 [clojurewerkz/urly "1.0.0"]]
+  :aot :all
+  :main squink.core)

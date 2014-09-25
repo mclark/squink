@@ -4,9 +4,11 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [compojure.core :refer [defroutes GET POST]]
-            [clojurewerkz.urly.core :refer [url-like]])
+            [clojurewerkz.urly.core :refer [url-like]]
+            [ring.adapter.jetty :refer [run-jetty]])
   (:import clojure.lang.Murmur3
-           com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException))
+           java.sql.SQLIntegrityConstraintViolationException)
+  (:gen-class))
 
 (def db {:subprotocol "mysql"
          :subname "//localhost:3306/squink"
@@ -31,9 +33,12 @@
                      :row-fn :url)))
 
 (defn insert-url [conn url hashed]
-            (jdbc/insert! conn :shortened_url
-                          {:url url :hashed hashed})
-  true)
+  (try
+    (jdbc/insert! conn :shortened_url
+                  {:url url :hashed hashed})
+    true
+    (catch SQLIntegrityConstraintViolationException e
+      (= url (find-url db hashed)))))
 
 (def hash-url (comp (partial format "%x")
                     #(Murmur3/hashUnencodedChars %)))
@@ -41,10 +46,7 @@
 (defn persist [url hashed]
   (let [existing (find-url db hashed)]
     (if (nil? existing)
-      (try
-        (insert-url db url hashed)
-        (catch MySQLIntegrityConstraintViolationException e
-               (= url (find-url db hashed))))
+      (insert-url db url hashed)
       (= existing url))))
 
 (defn shorten [url]
@@ -87,3 +89,6 @@
   (-> app
       wrap-keyword-params
       wrap-params))
+
+(defn -main [& args]
+  (run-jetty handler {:port 3000}))
