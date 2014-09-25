@@ -5,7 +5,8 @@
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [compojure.core :refer [defroutes GET POST]]
             [clojurewerkz.urly.core :refer [url-like]])
-  (:import clojure.lang.Murmur3 (com.mysql.jdbc.exceptions MySQLIntegrityConstraintViolationException)))
+  (:import clojure.lang.Murmur3
+           com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException))
 
 (def db {:subprotocol "mysql"
          :subname "//localhost:3306/squink"
@@ -66,9 +67,11 @@
 (defn handle-create [url]
   (let [cleaned-url (sanitize-url url)]
     (if (valid? cleaned-url)
-      {:status 201
-       :body   (str hostname "/" (shorten cleaned-url))}
-      {:status 400})))
+      (if-let [shortened (shorten cleaned-url)]
+        {:status 201
+         :body   (str hostname "/" shortened)}
+        {:status 400 :body "uncomputable hash!"})
+      {:status 400 :body "invalid url"})))
 
 (defn handle-lookup [hash]
   (let [url (find-url db hash)]
