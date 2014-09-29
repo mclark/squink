@@ -1,32 +1,32 @@
 (ns squink.core
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.string :refer [blank? trim]]
+            [clojure.edn :as edn]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [compojure.core :refer [defroutes GET POST]]
             [clojurewerkz.urly.core :refer [url-like]]
             [ring.adapter.jetty :refer [run-jetty]])
   (:import clojure.lang.Murmur3
-           java.sql.SQLIntegrityConstraintViolationException)
+           java.sql.SQLIntegrityConstraintViolationException
+           java.io.PushbackReader)
   (:gen-class))
 
-(def db {:subprotocol "mysql"
-         :subname "//localhost:3306/squink"
-         :user "root"})
+(declare config)
 
-(defn create-schema []
+(declare db)
+
+(defn create-schema [erase-existing]
+  (when erase-existing (jdbc/db-do-commands db "DROP TABLE IF EXISTS shortened_url"))
   (jdbc/db-do-commands
     db
-    "DROP TABLE IF EXISTS shortened_url"
-    "CREATE TABLE `shortened_url` (
+    "CREATE TABLE IF NOT EXISTS `shortened_url` (
       `id` int(11) NOT NULL AUTO_INCREMENT,
       `hashed` CHAR(8) NOT NULL,
       `url` VARCHAR(2000) NOT NULL,
       `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       PRIMARY KEY (`id`),
       UNIQUE KEY (`hashed`)) ENGINE=InnoDB DEFAULT CHARSET=utf8"))
-
-(def hostname "squi.nk")
 
 (defn find-url [conn hashed]
   (first (jdbc/query conn ["SELECT url FROM shortened_url WHERE hashed=?" hashed]
@@ -71,7 +71,7 @@
     (if (valid? cleaned-url)
       (if-let [shortened (shorten cleaned-url)]
         {:status 201
-         :body   (str hostname "/" shortened)}
+         :body shortened}
         {:status 400 :body "uncomputable hash!"})
       {:status 400 :body "invalid url"})))
 
@@ -90,5 +90,11 @@
       wrap-keyword-params
       wrap-params))
 
+(defn read-config []
+  (def config (edn/read-string (slurp "squink.conf.edn")))
+  (def db (:db config)))
+
 (defn -main [& args]
-  (run-jetty handler {:port 3000}))
+  (read-config)
+  (create-schema false)
+  (run-jetty handler {:port 80}))
