@@ -12,7 +12,7 @@
            java.io.PushbackReader)
   (:gen-class))
 
-(declare config)
+(def config {:retry-count 3 :base-stem 2})
 
 (def memoized (atom {}))
 
@@ -26,7 +26,7 @@
     db
     "CREATE TABLE IF NOT EXISTS `shortened_url` (
       `id` int(11) NOT NULL AUTO_INCREMENT,
-      `hashed` CHAR(8) NOT NULL,
+      `hashed` VARCHAR(32) NOT NULL,
       `url` VARCHAR(2000) NOT NULL,
       `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       PRIMARY KEY (`id`),
@@ -36,13 +36,13 @@
   (first (jdbc/query conn ["SELECT url FROM shortened_url WHERE hashed=?" hashed]
                      :row-fn :url)))
 
-(defn insert-url [conn url hashed]
+(defn- insert-url [conn url hashed]
   (try
     (jdbc/insert! conn :shortened_url
                   {:url url :hashed hashed})
-    hashed
+    url
     (catch SQLIntegrityConstraintViolationException e
-      (when (= url (lookup-url hashed)) hashed))))
+      (when (= url (lookup-url hashed)) url))))
 
 (defn lookup-url [code]
   (if-let [url (get @memoized code)]
@@ -53,15 +53,17 @@
           (get @memoized code)))))
 
 (defn persist [url hashed]
-  (loop [char-count 1]
+  (loop [char-count (:base-stem config)]
     (let [h (apply str (take char-count hashed))
-          existing (lookup-url h)]
-      (if (nil? existing)
-        (or (insert-url db url h) (if (< char-count (count hashed)) (recur (inc char-count)) nil))
-        (if (= existing url) h (if (< char-count (count hashed)) (recur (inc char-count)) nil))))))
+          existing (or (lookup-url h) (insert-url db url h))]
+      (if (= existing url)
+        h
+        (if (< char-count (count hashed))
+          (recur (inc char-count))
+          nil)))))
 
 (defn shorten [url]
-  (loop [candidate-url url tries-remaining 3]
+  (loop [candidate-url url tries-remaining (:retry-count config)]
     (let [hashed (hash128 candidate-url)
           persisted-hash (persist candidate-url hashed)]
       (if (and (nil? persisted-hash)

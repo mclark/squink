@@ -1,3 +1,6 @@
 {:db {:subprotocol "mysql"
       :subname     "//mysql:3306/squink"
-      :user        "root"}}
+      :user        "root"}
+
+ :rety-count 3
+ :base-stem  2}
