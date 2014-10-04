@@ -7,14 +7,18 @@
             [compojure.core :refer [defroutes GET POST]]
             [clojurewerkz.urly.core :refer [url-like]]
             [ring.adapter.jetty :refer [run-jetty]]
-            [squink.hash :refer [hash32]])
+            [squink.hash :refer [hash128]])
   (:import java.sql.SQLIntegrityConstraintViolationException
            java.io.PushbackReader)
   (:gen-class))
 
 (declare config)
 
-(declare db)
+(def memoized (atom {}))
+
+(def db {:subprotocol "mysql"
+         :subname     "//localhost:3306/squink"
+         :user        "root"})
 
 (defn create-schema [erase-existing]
   (when erase-existing (jdbc/db-do-commands db "DROP TABLE IF EXISTS shortened_url"))
@@ -36,24 +40,34 @@
   (try
     (jdbc/insert! conn :shortened_url
                   {:url url :hashed hashed})
-    true
+    hashed
     (catch SQLIntegrityConstraintViolationException e
-      (= url (find-url db hashed)))))
+      (when (= url (lookup-url hashed)) hashed))))
+
+(defn lookup-url [code]
+  (if-let [url (get @memoized code)]
+    url
+    (if-let [url (find-url db code)]
+      (do (swap! memoized
+                 (fn [m] (if-not (get m code) (assoc m code url) m)))
+          (get @memoized code)))))
 
 (defn persist [url hashed]
-  (let [existing (find-url db hashed)]
-    (if (nil? existing)
-      (insert-url db url hashed)
-      (= existing url))))
+  (loop [char-count 1]
+    (let [h (apply str (take char-count hashed))
+          existing (lookup-url h)]
+      (if (nil? existing)
+        (or (insert-url db url h) (if (< char-count (count hashed)) (recur (inc char-count)) nil))
+        (if (= existing url) h (if (< char-count (count hashed)) (recur (inc char-count)) nil))))))
 
 (defn shorten [url]
   (loop [candidate-url url tries-remaining 3]
-    (let [hashed (hash32 candidate-url)]
-      (if (persist candidate-url hashed)
-        hashed
-        (if (< 0 tries-remaining)
-          (recur (str tries-remaining "+" url) (dec tries-remaining))
-          nil)))))
+    (let [hashed (hash128 candidate-url)
+          persisted-hash (persist candidate-url hashed)]
+      (if (and (nil? persisted-hash)
+               (< 0 tries-remaining))
+        (recur (str tries-remaining "+" url) (dec tries-remaining))
+        persisted-hash))))
 
 (defn- sanitize-url [^String url]
   (if (blank? url)

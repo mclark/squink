@@ -1,4 +1,4 @@
-(ns squink.squink.hash
+(ns squink.hash
   (:import com.google.common.hash.Hashing
            clojure.lang.Murmur3))
 
