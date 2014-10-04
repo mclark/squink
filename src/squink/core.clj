@@ -6,9 +6,9 @@
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [compojure.core :refer [defroutes GET POST]]
             [clojurewerkz.urly.core :refer [url-like]]
-            [ring.adapter.jetty :refer [run-jetty]])
-  (:import clojure.lang.Murmur3
-           java.sql.SQLIntegrityConstraintViolationException
+            [ring.adapter.jetty :refer [run-jetty]]
+            [squink.hash :refer [hash32]])
+  (:import java.sql.SQLIntegrityConstraintViolationException
            java.io.PushbackReader)
   (:gen-class))
 
@@ -40,9 +40,6 @@
     (catch SQLIntegrityConstraintViolationException e
       (= url (find-url db hashed)))))
 
-(def hash-url (comp (partial format "%x")
-                    #(Murmur3/hashUnencodedChars %)))
-
 (defn persist [url hashed]
   (let [existing (find-url db hashed)]
     (if (nil? existing)
@@ -51,7 +48,7 @@
 
 (defn shorten [url]
   (loop [candidate-url url tries-remaining 3]
-    (let [hashed (hash-url candidate-url)]
+    (let [hashed (hash32 candidate-url)]
       (if (persist candidate-url hashed)
         hashed
         (if (< 0 tries-remaining)
@@ -63,7 +60,7 @@
     nil
     (.toString (url-like url))))
 
-(defn- valid? [url]
+(defn- valid? [^String url]
   (and (not (blank? url)) (> 2000 (.length url))))
 
 (defn handle-create [url]
