@@ -18,7 +18,7 @@
          (fact "unrecognized hashes should return nil"
                (find-url conn "unknown-hash") => nil)
 
-         (fact "with a previously inserted url"
+         (fact "with a previously inserted url should return that url"
                (let [url "http://facebook.com"
                      hash "somehash"]
                  (insert-url conn url hash)

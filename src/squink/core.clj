@@ -14,8 +14,6 @@
 ;
 ;(def config {:retry-count 3 :base-stem 2})
 ;
-;(def memoized (atom {}))
-;
 ;(defn lookup-url [code]
 ;  (if-let [url (get @memoized code)]
 ;    url
