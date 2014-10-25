@@ -1,4 +1,8 @@
-(ns squink.routes)
+(ns squink.routes
+  (:require [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+            [compojure.core :refer [defroutes GET POST]]
+            [ring.adapter.jetty :refer [run-jetty]]))
 
 ;(defn handle-create [url]
 ;  (let [cleaned-url (sanitize-url url)]
