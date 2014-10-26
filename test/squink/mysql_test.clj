@@ -10,7 +10,7 @@
 (declare ^{:private true :dynamic true} conn)
 
 (with-state-changes
-  [(before :facts (create-schema test-db true))
+  [(before :facts (create-schema! test-db true))
    (around :facts (with-db-transaction [c test-db]
                                        (db-set-rollback-only! c)
                                        (binding [conn c] ?form)))]

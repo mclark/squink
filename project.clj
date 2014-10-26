@@ -11,7 +11,7 @@
                            [ring/ring-jetty-adapter "1.3.1"]
                            [org.clojure/java.jdbc "0.3.5"]
                            [mysql/mysql-connector-java "5.1.25"]
-                           [clojurewerkz/urly "1.0.0"]
+                           [clojurewerkz/urly "2.0.0-SNAPSHOT"]
                            [com.google.guava/guava "18.0"]]
             :profiles {:dev {:dependencies [[midje "1.6.3"]]}}
             ;:aot :all

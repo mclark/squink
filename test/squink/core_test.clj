@@ -25,13 +25,14 @@
 (facts "valid?"
        (valid? nil) => false
        (valid? "") => false?
-       (valid? "test") => true
+       (valid? "test") => false
+       (valid? "test.com") => true
        (valid? (apply str (repeat 300 "abcdefg"))) => false)
 
 (facts "sanitize-url"
        (sanitize-url "http://www.test.com") => "http://www.test.com/"
-       ;(sanitize-url "www.test.com") => "http://www.test.com"
-       ;(sanitize-url "test.com") => "http://test.com"
+       (sanitize-url "www.test.com") => "http://www.test.com/"
+       (sanitize-url "test.com") => "http://test.com/"
        )
 
 (let [url "http://www.varagesale.com"

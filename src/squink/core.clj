@@ -3,8 +3,7 @@
             [squink.hash :refer [hash128]]
             [clojure.string :refer [blank? trim]]
             [clojurewerkz.urly.core :refer [url-like]]
-            [clojure.edn :as edn])
-  (:gen-class))
+            [clojure.edn :as edn]))
 
 (def ^:dynamic *config* {:retry-count 3 :base-stem 2})
 
@@ -40,7 +39,7 @@
     (.toString (url-like url))))
 
 (defn valid? [^String url]
-  (and (not (blank? url)) (> 2000 (.length url))))
+  (and (not (blank? url)) (> 2000 (.length url)) (> (.indexOf url ".") 0)))
 
 (defn set-config!
   ([] (set-config! "squink.conf.edn"))

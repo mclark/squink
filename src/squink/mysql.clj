@@ -8,7 +8,7 @@
 
 (def memoized (atom {}))
 
-(defn create-schema [db erase-existing]
+(defn create-schema! [db erase-existing]
   (when erase-existing (jdbc/db-do-commands db "DROP TABLE IF EXISTS shortened_url"))
   (jdbc/db-do-commands
     db
